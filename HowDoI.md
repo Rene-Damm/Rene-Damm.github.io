@@ -162,6 +162,9 @@ void LoadUserRebinds(PlayerInput player)
 
 ![Automated Tests](Images/HowDoI/AutomatedTests.gif)
 
+1. Create a test assembly and add references for `UnityEngine.InputSystem` and `UnityEngine.InputSystem.TestFramework`.
+2. Add `com.unity.inputsystem` to `testables` in your project's `manifest.json` file.
+
 ```CSharp
 // InputTestFixture isolates input for testing. No devices and no input from the host machine.
 // Automatically cleans up any input-related setup put in place by a test.
@@ -183,3 +186,5 @@ class Tests : InputTestFixture
    }
 }
 ```
+
+More info in the [docs](Testing.md).
