@@ -8,8 +8,7 @@ Get Started:
 
 Players:
 
------------
-* [... have multiple local players in my game?](#have-multiple-local-players-in-my-game)
+* [... have multiple players in my game?](#have-multiple-players-in-my-game)
 * [... detect when the player is switching from keyboard&mouse to gamepad?](#detect-when-a-player-is-switching-from-keyboard-mouse-to-gamepad)
 * [... manually determine which control scheme and devices a player is using?](#manually-determine-which-control-scheme-and-devices-a-player-is-using)
 
@@ -20,6 +19,7 @@ Actions:
 * [... create a SHIFT+B input?](#create-a-shift-b-input)
 * [... create a WASD input?](#create-a-wasd-input)
 * [... require a button to be pressed quickly or slowly?](#require-a-button-to-be-pressed-quickly-or-slowly)
+* [... embed actions into my `MonoBehaviour` component?](#...)
 
 Rebinding:
 
@@ -71,8 +71,10 @@ Testing:
 
 Scripting:
 
-* [... set up input entirely in script?](#set-up-input-entirely-in-script)
+* [... set up input without using MonoBehaviours?](#set-up-input-without-using-monobehaviours)
 * [... ]
+
+## Get Started
 
 ### <a name="set-up-input-in-a-blank-project"></a>... set up input in a blank project?
 
@@ -120,9 +122,15 @@ After [installation](Installation.md), set `Active Input Handling` in `Player Pr
 
 ![Use Old and New](Images/HowDoI/UseOldAndNew.gif)
 
-### <a name="have-multiple-local-players-in-my-game"></a> ... have multiple local players in my game?
+## Players
 
-Each [`PlayerInput`](Components.md#playerinput-component) represents one player. Having more than one `GameObject` with the `PlayerInput` component on it in the game automatically creates multiple independent players. Each player TODO............................
+### <a name="have-multiple-players-in-my-game"></a> ... have multiple players in my game?
+
+Each [`PlayerInput`](Components.md#playerinput-component) represents one player. Having more than one `GameObject` with the `PlayerInput` component on it in the game creates multiple independent players. Each player gets assigned devices for exclusive use by that player.
+
+Note that 
+
+#### Join players from a lobby
 
 ![Player Lobby](Images/HowDoI/PlayerLobby.gif)
 
@@ -132,7 +140,22 @@ foreach (var player in playerInput.all)
    Debug.Log($"Player ...");
 ```
 
-----------------
+#### Spawn players
+
+You can manually spawn new players using [`PlayerInput.Instantiate`](../api/UnityEngine.InputSystem.PlayerInput.html#UnityEngine_InputSystem_PlayerInput_Instantiate_XXX).
+
+```CSharp
+// Four players, each one on a gamepad.
+PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[0]);
+PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[1]);
+PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[2]);
+PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[3]);
+```
+
+#### Listen for joins
+
+
+## Actions
 
 ### <a name="let-a-user-rebind-an-action-to-a-different-control"></a> ... let the user rebind an action to a different control?
 
@@ -156,7 +179,26 @@ void LoadUserRebinds(PlayerInput player)
 }
 ```
 
----------
+## Keyboards
+
+### <a name="have-two-players-use-the-same-keyboard"></a> ... have two players use the same keyboard?
+
+[`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) will, by default, not assign two players to the same device. However, you can manually switch/spawn players .
+
+1. Create separate control schemes for
+    ![SplitKeyboard](Images/HowDoI/SplitKeyboard.gif)
+2. Spawn players using the control schemes or switch existing players to them.
+    ```CSharp
+    // Spawn two players. One using WASD and one using arrows.
+    PlayerInput.Instantiate(playerPrefab, controlScheme: "KeyboardWASD", pairWithDevice: Keyboard.current);
+    PlayerInput.Instantiate(playerPrefab, controlScheme: "KeyboardArrows", pairWithDevice: Keyboard.current);
+   
+    // Alternatively, switch existing players.
+    PlayerInput.all[0].SwitchCurrentControlScheme("KeyboardWASD", Keyboard.current);
+    PlayerInput.all[1].SwitchCurrentControlScheme("KeyboardArrows", Keyboard.current);
+    ```
+
+## Testing
 
 ### <a name="create-mock-input-in-an-automated-test"></a> ... create mock input in an automated test?
 
@@ -188,3 +230,70 @@ class Tests : InputTestFixture
 ```
 
 More info in the [docs](Testing.md).
+
+### <a name="set-an-actions-value-programmatically"></a> ... set an action's value programmatically?
+
+Actions need to be bound to controls. They do not have values by themselves.
+
+You can create a [`InputDevice`](../api/UnityEngine.InputSystem.InputDevice.html) automatically from an [`InputActionAsset`](../api/UnityEngine.InputSystem.InputActionAsset.html) using the following function. This creates controls on the device that mirror the actions found in the asset.
+
+```CSharp
+// Take a set of actions and create an InputDevice for it that has a control
+// for each of the actions. Also binds the actions to that those controls.
+public static InputDevice SetUpMockInputForActions(InputActionAsset actions)
+{
+  var layoutName = actions.name;
+
+  // Build a device layout that simply has one control for each action in the asset.
+  InputSystem.RegisterLayoutBuilder(() =>
+  {
+      var builder = new InputControlLayout.Builder()
+          .WithName(layoutName);
+
+      foreach (var action in actions)
+      {
+          builder.AddControl(action.name) // Must not have actions in separate maps with the same name.
+              .WithLayout(action.expectedControlType);
+      }
+
+      return builder.Build();
+  }, name: layoutName);
+
+  // Create the device.
+  var device = InputSystem.AddDevice(layoutName);
+
+  // Add a control scheme for it to the actions.
+  actions.AddControlScheme("MockInput")
+      .WithRequiredDevice($"<{layoutName}>");
+
+  // Bind the actions in the newly added control scheme.
+  foreach (var action in actions)
+      action.AddBinding($"<{layoutName}>/{action.name}", groups: "MockInput");
+
+  // Restrict the actions to bind only to our newly created
+  // device using the bindings we just added.
+  actions.bindingMask = InputBinding.MaskByGroup("MockInput");
+  actions.devices = new[] { device };
+
+  return device;
+}
+```
+
+Using this function, you can, for example, do:
+
+```CSharp
+var mockInput = SetUpMockInputForActions(actions);
+Press((ButtonControl)mockInput["fire"]);
+```
+
+### <a name="record-and-replay-input"></a> ... record and replay input?
+
+## Scripting
+
+### <a name="set-up-input-without-using-monobehaviours"></a> ... set up input without using MonoBehaviours?
+
+
+
+... video for "Generate C# Class"
+
+#### Supporting Control Schemes
