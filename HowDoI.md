@@ -4,6 +4,7 @@ Get Started:
 
 * [... set up input in a blank project?](#set-up-input-in-a-blank-project)
 * [... set up uGUI to work with the input system?](#set-up-ugui-to-work-with-the-input-system)
+* [... move my code from the old input system to the new one?](#move-my-code-from-the-old-input-system-to-the-new-one)
 * [... keep using the old input system alongside the new one?](#keep-using-the-old-input-system-alongside-the-new-one)
 
 Players:
@@ -18,8 +19,10 @@ Actions:
 * [... create a value input?](#create-a-value-input)
 * [... create a SHIFT+B input?](#create-a-shift-b-input)
 * [... create a WASD input?](#create-a-wasd-input)
+* [... create a camera rotation input?](#create-a-camera-rotation-input)
 * [... require a button to be pressed quickly or slowly?](#require-a-button-to-be-pressed-quickly-or-slowly)
 * [... act on an input continuously every frame?](#act-on-an-input-continuously-every-frame)
+* [... change parameters on a processor or interaction at runtime?](#change-parameters-on-a-processor-or-interaction-at-runtime)
 
 Rebinding:
 
@@ -74,6 +77,8 @@ Testing:
 Scripting:
 
 * [... set up input without using MonoBehaviours?](#set-up-input-without-using-monobehaviours)
+* [... add or remove bindings programmatically?](#add-or-remove-bindings-programmatically)
+* [... create a self-contained component using input?](#create-a-self-contained-component-using-input)
 * [... listen to all input coming in?](#listen-to-all-input-coming-in)
 
 ----------------
@@ -88,6 +93,8 @@ Scripting:
 2. Add a [`PlayerInput`](Components.md#playerinput-component) to a `GameObject`.
    ![Add Player](Images/HowDoI/AddPlayer.gif)
    This adds an [`.inputactions`](ActionAssets.md) asset to your project and sets up one player in the game to use those actions.<br><br>
+   If you prefer to not rely on `MonoBehaviour`s and `GameObject`s here, see ["How do I set up input without using MonoBehaviours"](#set-up-input-without-using-monobehaviours).
+   <br><br>
 3. Read input from the actions in script.
    ![Read Input](Images/HowDoI/ReadInput.gif)
    ```C#
@@ -533,13 +540,70 @@ Press((ButtonControl)mockInput["fire"]);
 
 ## Scripting
 
-### 
-
 ### <a name="set-up-input-without-using-monobehaviours"></a> ... set up input without using MonoBehaviours?
 
+While it is possible to create [input actions](Actions.md) from scratch through the API, an easier way is usually to create an `.inputactions` asset and turn it into code automatically by turning on `Generate C# Class` in its properties.
 
+![Generate Class](Images/HowDoI/GenerateClass.gif)
 
-... video for "Generate C# Class"
+```C#
+public class InputController : MonoBehaviour
+{
+    private MyActions m_Actions;
+    
+    private void Start()
+    {
+        m_Actions = new MyActions();
+    }
+    
+    private void OnEnable()
+    {
+        m_Actions.Player.Enable();
+    }
+    
+    private void OnDisable()
+    {
+        m_Actions.Disable();
+    }
+    
+    private void Update()
+    {
+        if (m_Actions.Player.Fire.WasPressedThisFrame())
+            Fire();
+            
+        var moveValue = m_Actions.Player.Move.ReadValue<Vector2>();
+        Move(moveValue);
+    }
+    
+    //...
+}
+```
+
+To instead create [input actions](Actions.md) entirely in code:
+
+```C#
+// "Standalone" action.
+var action = new InputAction(binding: "<Gamepad>/buttonSouth");
+action.Enable();
+
+// "Standalone" action map.
+var map = new InputActionMap();
+var action1InMap = map.AddAction("action1", binding: "<Gamepad>/buttonSouth");
+var action2InMap = map.AddAction("action2", binding: "<Gamepad>/rightTrigger);
+map.Enable();
+
+// Entire action asset.
+var asset = ScriptableObject.CreateInstance<InputActionAsset>();
+var gameplay = asset.AddActionMap("Gameplay");
+var moveAction = gameplay.AddAction("Move");
+moveAction.AddCompositeBinding("2DVector")
+    .With("Up", "<Keyboard>/w")
+    .With("Left", "<Keyboard>/a")
+    .With("Down", "<Keyboard>/s")
+    .With("Right", "<Keyboard>/d");
+var fireAction = gameplay.AddAction("Fire", binding: "<Mouse>/leftButton");
+asset.Enable();
+```
 
 #### Support control schemes
 
