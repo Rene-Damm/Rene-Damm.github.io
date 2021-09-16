@@ -89,7 +89,7 @@ Scripting:
    This adds an [`.inputactions`](ActionAssets.md) asset to your project and sets up one player in the game to use those actions.<br><br>
 3. Read input from the actions in script.
    ![Read Input](Images/HowDoI/ReadInput.gif)
-   ```CSharp
+   ```C#
    public class CharacterController : MonoBehaviour
    {
        public InputActionReference fire;
@@ -136,7 +136,7 @@ Each [`PlayerInput`](Components.md#playerinput-component) represents one player.
 
 ![Player Lobby](Images/HowDoI/PlayerLobby.gif)
 
-```CSharp
+```C#
 // Enumerate all player currently in the game.
 foreach (var player in playerInput.all)
    Debug.Log($"Player ...");
@@ -146,7 +146,7 @@ foreach (var player in playerInput.all)
 
 You can manually spawn new players using [`PlayerInput.Instantiate`](../api/UnityEngine.InputSystem.PlayerInput.html#UnityEngine_InputSystem_PlayerInput_Instantiate_XXX).
 
-```CSharp
+```C#
 // Four players, each one on a gamepad.
 PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[0]);
 PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[1]);
@@ -168,7 +168,7 @@ PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[3]);
 
 Call [`SaveBindingOverridesAsJson`](../api/UnityEngine.InputSystem.InputActionRebindingExtensions.html#UnityEngine_InputSystem_InputActionRebindingExtensions_SaveBindingOverridesAsJson_UnityEngine_InputSystem_IInputActionCollection2_) to create a string containing all rebinds for the given set of actions and [`LoadBindingOverridesFromJson`](../api/UnityEngine.InputSystem.InputActionRebindingExtensions.html#UnityEngine_InputSystem_InputActionRebindingExtensions_LoadBindingOverridesFromJson_UnityEngine_InputSystem_IInputActionCollection2_System_String_System_Boolean_) to restore rebinds from such a string.
 
-```CSharp
+```C#
 void SaveUserRebinds(PlayerInput player)
 {
     var rebinds = player.actions.SaveBindingOverridesAsJson();
@@ -187,7 +187,7 @@ void LoadUserRebinds(PlayerInput player)
 
 ### <a name="find-out-which-devices-are-available"></a> ... find out which devices are available?
 
-```CSharp
+```C#
 foreach (var device in InputSystem.devices)
 {
     if (device is Keyboard)
@@ -205,7 +205,7 @@ foreach (var device in InputSystem.devices)
 
 ### <a name="wait-for-the-player-to-press-a-button-on-any-device"></a> ... wait for the player to press a button on any device?
 
-```CSharp
+```C#
 // Call delegate once on button press.
 InputSystem.onAnyButtonPress
     .CallOnce(button => Debug.Log($"Button {button} was pressed!"));
@@ -221,7 +221,7 @@ listener.Dispose();
 
 ### <a name="read-input-directly-from-a-device"></a> ... read input directly from a device?
 
-```CSharp
+```C#
 // Keyboard.
 if (Keyboard.current.spaceKey.isPressed)
     Debug.Log("Space key is pressed");
@@ -251,7 +251,7 @@ foreach (var control in device.allControls)
 
 ### <a name="determine-whether-the-player-is-using-an-xbox-or-playstation-controller"></a> ... determine whether the player is using an Xbox or PlayStation controller?
 
-```CSharp
+```C#
 // Xbox/XInput.
 if (gamepad is XInputController)
    Debug.Log("Using Xbox controller");
@@ -263,7 +263,7 @@ if (gamepad is DualShockGamepad)
 
 For [`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) such as when receiving [`OnControlsChanged`](../api/UnityEngine.InputSystem.PlayerInput.html#UnityEngine_InputSystem_PlayerInput_controlsChangedEvent).
 
-```CSharp
+```C#
 void OnControlsChanged(PlayerInput player)
 {
     if (player.GetDevice<XInputController>() != null)
@@ -279,11 +279,31 @@ You can also utilize these classes in control schemes. For example, you can have
 
 >__Note:__
 >
->Xbox and PlayStation and Switch controller support is available across platforms. However, when working __on__ these consoles, you will need the console-specific input package available through the respective licensee channels.
+>Xbox and PlayStation and Switch controller support is available across platforms. However, when working __on__ these consoles, you will, in addition to the input system package, need the console-specific input package available through the respective licensee channels.
 
 ----------------
 
 ## Keyboards
+
+### <a name="bind-to-the-q-text-input"></a> ... bind to the 'q' *text* input?
+
+Use the "By Character Mapped to Key" group in the control picker instead of the "By Location of Key (Using US Layout)" group.
+
+![BindChar](Images/HowDoI/BindChar.gif)
+
+When manually creating actions/bindings in script:
+
+```C#
+// Bind to the key to the right of the CAPS LOCK key.
+// This binding will refer to the key regardless of the language
+// layout currently selected.
+var action1 = new InputAction(binding: "<Keyboard>/a");
+
+// Bind to the key that inputs the 'a' character. If no such key
+// exists in the currently active language layout, the action will
+// remain unbound.
+var action2 = new InputAction(binding: "<Keyboard>/#(a)");
+```
 
 ### <a name="have-two-players-use-the-same-keyboard"></a> ... have two players use the same keyboard?
 
@@ -292,7 +312,7 @@ You can also utilize these classes in control schemes. For example, you can have
 1. Create two separate control schemes for the keyboard.
     ![SplitKeyboard](Images/HowDoI/SplitKeyboard.gif)
 2. Spawn players using the control schemes or switch existing players to them.
-    ```CSharp
+    ```C#
     // Spawn two players. One using WASD and one using arrows.
     PlayerInput.Instantiate(playerPrefab, controlScheme: "KeyboardWASD", pairWithDevice: Keyboard.current);
     PlayerInput.Instantiate(playerPrefab, controlScheme: "KeyboardArrows", pairWithDevice: Keyboard.current);
@@ -301,6 +321,54 @@ You can also utilize these classes in control schemes. For example, you can have
     PlayerInput.all[0].SwitchCurrentControlScheme("KeyboardWASD", Keyboard.current);
     PlayerInput.all[1].SwitchCurrentControlScheme("KeyboardArrows", Keyboard.current);
     ```
+
+----------------
+   
+## Sensors
+
+### <a name="read-gyroscope-input"></a> ... read gyroscope input?
+
+You can read out rotation rates via [`Gyroscope.angularVelocity`](../api/UnityEngine.InputSystem.Gyroscope.html#UnityEngine_InputSystem_Gyroscope_angularVelocity).
+
+```C#
+// Turn on sensor.
+InputSystem.EnableDevice(Gyroscope.current);
+
+// Read out value.
+var value = Gyroscope.current.angularVelocity.ReadValue();
+```
+
+You can read out gravity via [`GravitySensor.gravity`](../api/UnityEngine.InputSystem.GravitySensor.html#UnityEngine_InputSystem_GravitySensor_gravity).
+
+```C#
+// Turn on sensor.
+InputSystem.EnableDevice(GravitySensor.current);
+
+// Read out value.
+var value = GravitySensor.current.gravity.ReadValue();
+```
+
+You can read out acceleration via [`LinearAccelerationSensor.acceleration`](../api/UnityEngine.InputSystem.LinearAccelerationSensor.html#UnityEngine_InputSystem_LinearAccelerationSensor_acceleration).
+
+```C#
+// Turn on sensor.
+InputSystem.EnableDevice(LinearAccelerationSensor.current);
+
+// Read out value.
+var value = LinearAccelerationSensor.current.acceleration.ReadValue();
+```
+
+You can read out attitude via [`AttitudeSensor.attitude`](../api/UnityEngine.InputSystem.AttitudeSensor.html#UnityEngine_InputSystem_AttitudeSensor_attitude).
+
+```C#
+// Turn on sensor.
+InputSystem.EnableDevice(AttitudeSensor.current);
+
+// Read out value.
+var value = AttitudeSensor.current.attitude.ReadValue();
+```
+
+These controls can also be bound in [actions](Actions.md).
    
 ----------------
 
@@ -327,7 +395,7 @@ There are several ways to test your mobile game with respect to input.
 1. Create a test assembly and add references for `UnityEngine.InputSystem` and `UnityEngine.InputSystem.TestFramework`.
 2. Add `com.unity.inputsystem` to `testables` in your project's `manifest.json` file.
 
-```CSharp
+```C#
 // InputTestFixture isolates input for testing. No devices and no input from the host machine.
 // Automatically cleans up any input-related setup put in place by a test.
 class Tests : InputTestFixture
@@ -357,7 +425,7 @@ Actions need to be bound to controls. They do not have values by themselves.
 
 You can create a [`InputDevice`](../api/UnityEngine.InputSystem.InputDevice.html) automatically from an [`InputActionAsset`](../api/UnityEngine.InputSystem.InputActionAsset.html) using the following function. This creates controls on the device that mirror the actions found in the asset.
 
-```CSharp
+```C#
 // Take a set of actions and create an InputDevice for it that has a control
 // for each of the actions. Also binds the actions to that those controls.
 public static InputDevice SetUpMockInputForActions(InputActionAsset actions)
@@ -401,7 +469,7 @@ public static InputDevice SetUpMockInputForActions(InputActionAsset actions)
 
 Using this function, you can, for example, do:
 
-```CSharp
+```C#
 var mockInput = SetUpMockInputForActions(actions);
 Press((ButtonControl)mockInput["fire"]);
 ```
