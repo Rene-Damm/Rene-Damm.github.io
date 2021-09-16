@@ -19,7 +19,6 @@ Actions:
 * [... create a SHIFT+B input?](#create-a-shift-b-input)
 * [... create a WASD input?](#create-a-wasd-input)
 * [... require a button to be pressed quickly or slowly?](#require-a-button-to-be-pressed-quickly-or-slowly)
-* [... embed actions into my `MonoBehaviour` component?](#...)
 
 Rebinding:
 
@@ -36,6 +35,8 @@ Devices:
 * [... detect when a device is connected or disconnected?](#detect-when-a-device-is-connected-or-disconnected)
 * [... find out which devices are available?](#find-out-which-devices-are-available)
 * [... wait for the player to press a button on any device?](#wait-for-the-player-to-press-a-button-on-any-device)
+* [... read input directly from a device?](#read-input-directly-from-a-device)
+* [... create my own input device?](#create-my-own-input-device)
 
 Gamepads:
 
@@ -60,7 +61,7 @@ Sensors:
 
 Debugging:
 
-* [... test my game on Android or iOS?](#...)
+* [... test my game on Android or iOS?](#test-my-game-on-android-or-ios)
 * [... see what actions are enabled and what they are bound to?](#...)
 
 Testing:
@@ -72,7 +73,9 @@ Testing:
 Scripting:
 
 * [... set up input without using MonoBehaviours?](#set-up-input-without-using-monobehaviours)
-* [... ]
+* [... listen to all input coming in?](#listen-to-all-input-coming-in)
+
+----------------
 
 ## Get Started
 
@@ -104,9 +107,6 @@ Scripting:
        //...
    }
    ```
-   There are other ways in which input from the actions can be consumed. For details, see the documentation for [`PlayerInput`](Components.md#playerinput-component) and [actions](Actions.md).
-
-////TODO: problem: above script doesn't work as is for local multiplayer
 
 ### <a name="set-up-ugui-to-work-with-the-input-system"></a> ... set up uGUI to work with the input system?
 
@@ -122,13 +122,15 @@ After [installation](Installation.md), set `Active Input Handling` in `Player Pr
 
 ![Use Old and New](Images/HowDoI/UseOldAndNew.gif)
 
+----------------
+
 ## Players
 
 ### <a name="have-multiple-players-in-my-game"></a> ... have multiple players in my game?
 
 Each [`PlayerInput`](Components.md#playerinput-component) represents one player. Having more than one `GameObject` with the `PlayerInput` component on it in the game creates multiple independent players. Each player gets assigned devices for exclusive use by that player.
 
-Note that 
+#### Create a player prefab
 
 #### Join players from a lobby
 
@@ -154,6 +156,7 @@ PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[3]);
 
 #### Listen for joins
 
+----------------
 
 ## Actions
 
@@ -178,6 +181,107 @@ void LoadUserRebinds(PlayerInput player)
     player.actions.LoadBindingOverridesFromJson(rebinds);
 }
 ```
+----------------
+
+## Devices
+
+### <a name="find-out-which-devices-are-available"></a> ... find out which devices are available?
+
+```CSharp
+foreach (var device in InputSystem.devices)
+{
+    if (device is Keyboard)
+        Debug.Log("Keyboard detected");
+    else if (device is Mouse)
+        Debug.Log("Mouse detected");
+    else if (device is Gamepad)
+        Debug.Log("Gamepad detected");
+    else if (device is Touchscreen)
+        Debug.Log("Touchscreen detected");
+    else
+        Debug.Log("Other kind of device: " + device);
+}
+```
+
+### <a name="wait-for-the-player-to-press-a-button-on-any-device"></a> ... wait for the player to press a button on any device?
+
+```CSharp
+// Call delegate once on button press.
+InputSystem.onAnyButtonPress
+    .CallOnce(button => Debug.Log($"Button {button} was pressed!"));
+   
+// Call delegate whenever a button is pressed.
+// NOTE: This will add overhead to event processing until the listener is disposed.
+var listener = InputSystem.onAnyButtonPress
+    .Call(button => Debug.Log($"Button {button} was pressed!"));
+
+// To dispose of the listener.
+listener.Dispose();
+```
+
+### <a name="read-input-directly-from-a-device"></a> ... read input directly from a device?
+
+```CSharp
+// Keyboard.
+if (Keyboard.current.spaceKey.isPressed)
+    Debug.Log("Space key is pressed");
+
+// Mouse.
+if (Mouse.current.leftButton.isPressed)
+    Debug.Log("LMB is pressed");
+var mousePosition = Mouse.current.position.ReadValue();
+
+// Gamepad.
+if (Gamepad.all[0].buttonSouth.isPressed)
+    Debug.Log("A button on first gamepad is pressed");
+var leftStick = Gamepad.all[0].leftStick.ReadValue();
+
+// Generic.
+var device = InputSystem.devices[0];
+var buttonSouthValue = device["buttonSouth"].ReadValueAsObject(); // Allocates.
+var leftStickX = ((AxisControl)device["leftStick/x"]).ReadValue();
+foreach (var control in device.allControls)
+    Debug.Log($"Control {control.path} = {control.ReadValueAsObject()}");
+```
+----------------
+
+## Gamepads
+
+### <a name="let-a-gamepad-control-the-mouse-cursor"></a> ... let a gamepad control the mouse cursor?
+
+### <a name="determine-whether-the-player-is-using-an-xbox-or-playstation-controller"></a> ... determine whether the player is using an Xbox or PlayStation controller?
+
+```CSharp
+// Xbox/XInput.
+if (gamepad is XInputController)
+   Debug.Log("Using Xbox controller");
+   
+// PlayStation.
+if (gamepad is DualShockGamepad)
+   Debug.Log("Using DualShock controller");
+```
+
+For [`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) such as when receiving [`OnControlsChanged`](../api/UnityEngine.InputSystem.PlayerInput.html#UnityEngine_InputSystem_PlayerInput_controlsChangedEvent).
+
+```CSharp
+void OnControlsChanged(PlayerInput player)
+{
+    if (player.GetDevice<XInputController>() != null)
+        Debug.Log("Player is using an Xbox controller");
+    else if (player.GetDevice<DualShockGamepad>() != null)
+        Debug.Log("Player is using a PlayStation controller");
+}
+```
+
+You can also utilize these classes in control schemes. For example, you can have a base "Gamepad" scheme with bindings shared between the controllers and then have additional control schemes specific to Xbox and PlayStation controllers. [`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) will pick the control scheme that best matches a given controller.
+
+![Xbox and PlayStation](Images/HowDoI/XboxAndPlayStation.gif)
+
+>__Note:__
+>
+>Xbox and PlayStation and Switch controller support is available across platforms. However, when working __on__ these consoles, you will need the console-specific input package available through the respective licensee channels.
+
+----------------
 
 ## Keyboards
 
@@ -185,7 +289,7 @@ void LoadUserRebinds(PlayerInput player)
 
 [`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) will, by default, not assign two players to the same device. However, you can manually switch/spawn players .
 
-1. Create separate control schemes for
+1. Create two separate control schemes for the keyboard.
     ![SplitKeyboard](Images/HowDoI/SplitKeyboard.gif)
 2. Spawn players using the control schemes or switch existing players to them.
     ```CSharp
@@ -197,6 +301,22 @@ void LoadUserRebinds(PlayerInput player)
     PlayerInput.all[0].SwitchCurrentControlScheme("KeyboardWASD", Keyboard.current);
     PlayerInput.all[1].SwitchCurrentControlScheme("KeyboardArrows", Keyboard.current);
     ```
+   
+----------------
+
+## Debugging
+
+### <a name="test-my-game-on-android-or-ios"></a> ... test my game on Android or iOS?
+
+There are several ways to test your mobile game with respect to input.
+
+#### Unity Remote
+
+#### Device Simulator
+
+#### Build and run player
+
+----------------
 
 ## Testing
 
@@ -288,7 +408,11 @@ Press((ButtonControl)mockInput["fire"]);
 
 ### <a name="record-and-replay-input"></a> ... record and replay input?
 
+----------------
+
 ## Scripting
+
+### 
 
 ### <a name="set-up-input-without-using-monobehaviours"></a> ... set up input without using MonoBehaviours?
 
@@ -296,4 +420,7 @@ Press((ButtonControl)mockInput["fire"]);
 
 ... video for "Generate C# Class"
 
-#### Supporting Control Schemes
+#### Support control schemes
+
+#### Manage multiple players
+
