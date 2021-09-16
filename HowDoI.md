@@ -9,7 +9,7 @@ Get Started:
 Players:
 
 * [... have multiple players in my game?](#have-multiple-players-in-my-game)
-* [... detect when the player is switching from keyboard&mouse to gamepad?](#detect-when-a-player-is-switching-from-keyboard-mouse-to-gamepad)
+* [... detect when a player is switching from keyboard&mouse to gamepad?](#detect-when-a-player-is-switching-from-keyboard-mouse-to-gamepad)
 * [... manually determine which control scheme and devices a player is using?](#manually-determine-which-control-scheme-and-devices-a-player-is-using)
 
 Actions:
@@ -19,6 +19,7 @@ Actions:
 * [... create a SHIFT+B input?](#create-a-shift-b-input)
 * [... create a WASD input?](#create-a-wasd-input)
 * [... require a button to be pressed quickly or slowly?](#require-a-button-to-be-pressed-quickly-or-slowly)
+* [... act on an input continuously every frame?](#act-on-an-input-continuously-every-frame)
 
 Rebinding:
 
@@ -50,7 +51,7 @@ Touch:
 
 Keyboards:
 
-* [... bind to the 'q' *text* input?](#bind-to-the-q-text-input)
+* [... bind to the 'a' *text* input?](#bind-to-the-a-text-input)
 * [... have two players use the same keyboard?](#have-two-players-use-the-same-keyboard)
 * [... receive text input?](#receive-text-input)
 * [... find out which text character corresponds to a key?](...)
@@ -131,6 +132,14 @@ After [installation](Installation.md), set `Active Input Handling` in `Player Pr
 Each [`PlayerInput`](Components.md#playerinput-component) represents one player. Having more than one `GameObject` with the `PlayerInput` component on it in the game creates multiple independent players. Each player gets assigned devices for exclusive use by that player.
 
 #### Create a player prefab
+
+Each player needs to be self-contained in so far as it should only respond to input from its own respective [`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html).
+
+![Player Prefab](Images/HowDoI/PlayerPrefab.gif)
+
+Alternatively, you can respond to input using callbacks/events:
+
+![Read Input Callbacks](Images/HowDoI/ReadInputCallbacks.gif)
 
 #### Join players from a lobby
 
@@ -285,7 +294,7 @@ You can also utilize these classes in control schemes. For example, you can have
 
 ## Keyboards
 
-### <a name="bind-to-the-q-text-input"></a> ... bind to the 'q' *text* input?
+### <a name="bind-to-the-a-text-input"></a> ... bind to the 'a' *text* input?
 
 Use the "By Character Mapped to Key" group in the control picker instead of the "By Location of Key (Using US Layout)" group.
 
@@ -307,7 +316,7 @@ var action2 = new InputAction(binding: "<Keyboard>/#(a)");
 
 ### <a name="have-two-players-use-the-same-keyboard"></a> ... have two players use the same keyboard?
 
-[`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) will, by default, not assign two players to the same device. However, you can manually switch/spawn players .
+[`PlayerInput`](../api/UnityEngine.InputSystem.PlayerInput.html) will, by default, not assign two players to the same device. However, you can manually switch players to use the same keyboard or spawn them that way from the beginning.
 
 1. Create two separate control schemes for the keyboard.
     ![SplitKeyboard](Images/HowDoI/SplitKeyboard.gif)
@@ -321,6 +330,17 @@ var action2 = new InputAction(binding: "<Keyboard>/#(a)");
     PlayerInput.all[0].SwitchCurrentControlScheme("KeyboardWASD", Keyboard.current);
     PlayerInput.all[1].SwitchCurrentControlScheme("KeyboardArrows", Keyboard.current);
     ```
+   
+### <a name="receive-text-input"></a> ... receive text input?
+
+Use [`Keyboard.onTextInput`](../api/UnityEngine.InputSystem.Keyboard.html#UnityEngine_InputSystem_Keyboard_onTextInput).
+
+```C#
+Keyboard.current.onTextInput +=
+    character => Debug.Log($"Char {character} input received");
+```
+
+For IME input, use [`Keyboard.onIMECompositionChange`](../api/UnityEngine.InputSystem.Keyboard.html#UnityEngine_InputSystem_Keyboard_onIMECompositionChange).
 
 ----------------
    
@@ -423,47 +443,47 @@ More info in the [docs](Testing.md).
 
 Actions need to be bound to controls. They do not have values by themselves.
 
-You can create a [`InputDevice`](../api/UnityEngine.InputSystem.InputDevice.html) automatically from an [`InputActionAsset`](../api/UnityEngine.InputSystem.InputActionAsset.html) using the following function. This creates controls on the device that mirror the actions found in the asset.
+You can create an [`InputDevice`](../api/UnityEngine.InputSystem.InputDevice.html) automatically from an [`InputActionAsset`](../api/UnityEngine.InputSystem.InputActionAsset.html) using the following function. This creates controls on the device that mirror the actions found in the asset.
 
 ```C#
 // Take a set of actions and create an InputDevice for it that has a control
 // for each of the actions. Also binds the actions to that those controls.
 public static InputDevice SetUpMockInputForActions(InputActionAsset actions)
 {
-  var layoutName = actions.name;
-
-  // Build a device layout that simply has one control for each action in the asset.
-  InputSystem.RegisterLayoutBuilder(() =>
-  {
-      var builder = new InputControlLayout.Builder()
-          .WithName(layoutName);
-
-      foreach (var action in actions)
-      {
-          builder.AddControl(action.name) // Must not have actions in separate maps with the same name.
-              .WithLayout(action.expectedControlType);
-      }
-
-      return builder.Build();
-  }, name: layoutName);
-
-  // Create the device.
-  var device = InputSystem.AddDevice(layoutName);
-
-  // Add a control scheme for it to the actions.
-  actions.AddControlScheme("MockInput")
-      .WithRequiredDevice($"<{layoutName}>");
-
-  // Bind the actions in the newly added control scheme.
-  foreach (var action in actions)
-      action.AddBinding($"<{layoutName}>/{action.name}", groups: "MockInput");
-
-  // Restrict the actions to bind only to our newly created
-  // device using the bindings we just added.
-  actions.bindingMask = InputBinding.MaskByGroup("MockInput");
-  actions.devices = new[] { device };
-
-  return device;
+    var layoutName = actions.name;
+  
+    // Build a device layout that simply has one control for each action in the asset.
+    InputSystem.RegisterLayoutBuilder(() =>
+    {
+        var builder = new InputControlLayout.Builder()
+            .WithName(layoutName);
+  
+        foreach (var action in actions)
+        {
+            builder.AddControl(action.name) // Must not have actions in separate maps with the same name.
+                .WithLayout(action.expectedControlType);
+        }
+  
+        return builder.Build();
+    }, name: layoutName);
+  
+    // Create the device.
+    var device = InputSystem.AddDevice(layoutName);
+  
+    // Add a control scheme for it to the actions.
+    actions.AddControlScheme("MockInput")
+        .WithRequiredDevice($"<{layoutName}>");
+  
+    // Bind the actions in the newly added control scheme.
+    foreach (var action in actions)
+        action.AddBinding($"<{layoutName}>/{action.name}", groups: "MockInput");
+  
+    // Restrict the actions to bind only to our newly created
+    // device using the bindings we just added.
+    actions.bindingMask = InputBinding.MaskByGroup("MockInput");
+    actions.devices = new[] { device };
+  
+    return device;
 }
 ```
 
