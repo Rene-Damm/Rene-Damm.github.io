@@ -143,12 +143,45 @@ Alternatively, you can respond to input using callbacks/events:
 
 #### Join players from a lobby
 
+A simple lobby setup can be created using [`PlayerInputManager`](../api/UnityEngine.InputSystem.PlayerInputManager.html).
+
 ![Player Lobby](Images/HowDoI/PlayerLobby.gif)
 
+Alternatively, you can create a simple "press button to join" setup using [`InputSystem.onAnyButtonPress`](../api/UnityEngine.InputSystem.InputSystem.html#UnityEngine_InputSystem_InputSystem_onAnyButtonPress).
+
 ```C#
-// Enumerate all player currently in the game.
-foreach (var player in playerInput.all)
-   Debug.Log($"Player ...");
+public class PlayerLobby : MonoBehaviour
+{
+    public GameObject playerPrefab;
+    
+    private IDisposable m_ButtonPressListener;
+    
+    private void OnEnable()
+    {
+        m_ButtonPressListener = InputSystem.onAnyButtonPress
+            .Call(button =>
+            {
+                // Grab the device from the button control.
+                var device = button.device;
+                
+                // Check if the device is already used by another player.
+                if (PlayerInput.FindFirstPairedToDevice(device) != null)
+                {
+                    // It is. Ignore this button press.
+                    return;
+                }
+                
+                // It is not, so create a new player.
+                var player = PlayerInput.Instantiate(playerPrefab, pairWithDevice: device);
+                Debug.Log($"Player {player.playerIndex+1} joined");
+            });
+    }
+    
+    private void OnDisable()
+    {
+        m_ButtonPressListener?.Dispose();
+    }
+}
 ```
 
 #### Spawn players
@@ -163,7 +196,7 @@ PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[2]);
 PlayerInstantiate(playerPrefab, controlScheme: "Gamepad", Gamepad.all[3]);
 ```
 
-#### Listen for joins
+#### Customize each player individually
 
 ----------------
 
